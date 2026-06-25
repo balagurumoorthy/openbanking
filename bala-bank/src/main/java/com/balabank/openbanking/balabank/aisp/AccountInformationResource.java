@@ -12,6 +12,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
 import java.util.List;
+import java.util.Map;
 
 /** OBIE Account Information (AISP) endpoints, v3.1 subset. */
 @Path("/open-banking/v3.1/aisp")
@@ -24,18 +25,18 @@ public class AccountInformationResource {
 
     @GET
     @Path("/accounts")
-    public ObResponse<List<AccountDto>> accounts() {
+    public ObResponse<Map<String, Object>> accounts() {
         consent.require(Permission.READ_ACCOUNTS_DETAIL);
         List<AccountDto> accounts = AccountEntity.<AccountEntity>list("customerId", consent.customerId()).stream()
                 .filter(a -> consent.consentedAccounts().contains(a.accountId))
                 .map(this::toDto)
                 .toList();
-        return ObResponse.of(accounts, "/open-banking/v3.1/aisp/accounts");
+        return ObResponse.ofResource("Account", accounts, "/open-banking/v3.1/aisp/accounts");
     }
 
     @GET
     @Path("/accounts/{accountId}/balances")
-    public ObResponse<List<BalanceDto>> balances(@PathParam("accountId") String accountId) {
+    public ObResponse<Map<String, Object>> balances(@PathParam("accountId") String accountId) {
         consent.require(Permission.READ_BALANCES);
         consent.requireAccount(accountId);
         ensureOwned(accountId);
@@ -43,12 +44,13 @@ public class AccountInformationResource {
                 .map(b -> new BalanceDto(b.accountId, new Money(b.amount, b.currency),
                         b.creditDebitIndicator, b.type, b.dateTime))
                 .toList();
-        return ObResponse.of(balances, "/open-banking/v3.1/aisp/accounts/" + accountId + "/balances");
+        return ObResponse.ofResource("Balance", balances,
+                "/open-banking/v3.1/aisp/accounts/" + accountId + "/balances");
     }
 
     @GET
     @Path("/accounts/{accountId}/transactions")
-    public ObResponse<List<TransactionDto>> transactions(@PathParam("accountId") String accountId) {
+    public ObResponse<Map<String, Object>> transactions(@PathParam("accountId") String accountId) {
         consent.require(Permission.READ_TRANSACTIONS_DETAIL);
         consent.requireAccount(accountId);
         ensureOwned(accountId);
@@ -56,7 +58,8 @@ public class AccountInformationResource {
                 .map(t -> new TransactionDto(String.valueOf(t.id), t.accountId, t.creditDebitIndicator,
                         t.status, new Money(t.amount, t.currency), t.bookingDateTime, t.transactionInformation))
                 .toList();
-        return ObResponse.of(txns, "/open-banking/v3.1/aisp/accounts/" + accountId + "/transactions");
+        return ObResponse.ofResource("Transaction", txns,
+                "/open-banking/v3.1/aisp/accounts/" + accountId + "/transactions");
     }
 
     private void ensureOwned(String accountId) {
@@ -67,6 +70,7 @@ public class AccountInformationResource {
 
     private AccountDto toDto(AccountEntity a) {
         return new AccountDto(a.accountId, a.status, a.currency, a.accountType,
-                a.accountSubType, a.nickname, a.identification, a.name);
+                a.accountSubType, a.nickname,
+                List.of(new AccountDto.Identifier("UK.OBIE.SortCodeAccountNumber", a.identification, a.name)));
     }
 }

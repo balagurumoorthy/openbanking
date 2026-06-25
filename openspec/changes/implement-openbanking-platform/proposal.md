@@ -21,7 +21,7 @@ Third Party Providers (TPPs) need a standards-based, secure way to access bank a
 - `mohana-tpp`: The MohanaTPP client application — dynamic/static client registration, consent initiation, redirect handling, token exchange, and API consumption.
 - `apisix-gateway`: APISIX gateway configuration fronting the ASPSP APIs — routes, upstreams, token/JWT validation, mTLS, and rate-limiting policies.
 - `local-deployment`: minikube-based local deployment of all components and the end-to-end test scenario (Helm/Kustomize manifests, container build, smoke test).
-- `api-plans`: Tiered TPP API plans (SILVER/GOLD/DIAMOND) with per-minute rate limiting, an OBIE 429 response, and a developer portal UI to view usage and upgrade tier; enforced in-app locally and via APISIX consumer-groups at the gateway.
+- `api-plans`: Tiered TPP API plans (SILVER/GOLD/DIAMOND) enforced in APISIX via jwt-auth consumers + consumer-groups + limit-count (Redis), returning 429 over the allowance, with a thin admin portal to view live usage and upgrade tier (Admin API consumer-group move).
 - `openbanking-api-standard`: Full UK Open Banking (OBIE) API standard conformance for Bala Bank — complete Account Information (AISP), Payment Initiation (PISP), Confirmation of Funds (CBPII), and Event Notification surfaces aligned to the OBIE Read/Write spec, plus a comprehensive seeded sample dataset to exercise every endpoint locally.
 
 ### Modified Capabilities

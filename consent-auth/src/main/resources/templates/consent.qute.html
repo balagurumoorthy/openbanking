@@ -30,7 +30,9 @@
 
         <h2>2. Permissions requested</h2>
         {#for p in permissions}
-        <label><input type="checkbox" name="permissions" value="{p}" checked> {p}</label>
+        <label><input type="checkbox" name="permissions" value="{p}" checked>
+            {#if p == 'ReadAccountsDetail'}View your account details{#else if p == 'ReadBalances'}View your account balances{#else if p == 'ReadTransactionsDetail'}View your transactions{#else}{p}{/if}
+            <span class="muted">({p})</span></label>
         {/for}
 
         <h2>3. Accounts to share</h2>

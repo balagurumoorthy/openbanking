@@ -31,8 +31,10 @@ curl http://localhost:8080/                      # MohanaTPP home
 2. You're redirected to Bala Bank's consent screen (served by consent-auth :8081).
 3. Sign in: **username `alice`, password `pw`**.
 4. Leave the permissions checked, keep **GB-ALICE-001** ticked, click **Approve**.
-5. You're redirected back to MohanaTPP, which exchanges the code and shows your
-   accounts JSON (only `GB-ALICE-001`, because that's what you consented to).
+5. You're redirected back to MohanaTPP, which exchanges the code and shows the
+   **account dashboard** — each consented account (only `GB-ALICE-001`) with its
+   **balance** fetched live via the gateway. Raw JSON is still at
+   `/accounts?s=<session>` and `/accounts/GB-ALICE-001/balances?s=<session>`.
 
 Try the negative path: repeat and click **Deny** → MohanaTPP shows "Consent denied (access_denied)".
 
@@ -85,10 +87,10 @@ echo
 curl -s $API/open-banking/v3.1/aisp/accounts/GB-ALICE-001/transactions -H "Authorization: Bearer $TOKEN"
 ```
 
-### Expected results
-- `accounts` → returns **GB-ALICE-001** only (the consented account).
-- `balances` → 2540.18 GBP.
-- `transactions` → coffee/salary/groceries entries.
+### Expected results (true OBIE envelope — PascalCase, nested `Data.<Resource>`)
+- `accounts` → `{"Data":{"Account":[{"AccountId":"GB-ALICE-001","Currency":"GBP","AccountType":"Personal","AccountSubType":"CurrentAccount","Account":[{"SchemeName":"UK.OBIE.SortCodeAccountNumber","Identification":"...","Name":"..."}]}]},"Links":{"Self":...},"Meta":{"TotalPages":1}}` — GB-ALICE-001 only.
+- `balances` → `{"Data":{"Balance":[{"AccountId":"GB-ALICE-001","Amount":{"Amount":"2540.18","Currency":"GBP"},"CreditDebitIndicator":"Credit","Type":"InterimAvailable",...}]},...}`.
+- `transactions` → `{"Data":{"Transaction":[...]}}` (coffee/salary/groceries). Note `Amount.Amount` is a **string** per the standard.
 
 ---
 
@@ -114,32 +116,42 @@ curl -s $API/open-banking/v3.1/aisp/accounts/GB-ALICE-002/balances \
 
 ---
 
-## 4b. Tiered rate limits + usage portal (silver / gold / diamond)
+## 4b. APISIX gateway: tiered rate limits + admin portal (silver / gold / diamond)
 
-Each TPP is on a plan tier enforced per minute: **SILVER=5, GOLD=20, DIAMOND=100** req/min.
-MohanaTPP seeds as SILVER.
+Tiering is enforced **in APISIX**, not the ASPSP. APISIX identifies each TPP as a `jwt-auth`
+consumer (keyed on the token's `client_id`), assigns it to a consumer-group
+(silver=5 / gold=20 / diamond=100 req/min), and counts with `limit-count` (Redis). Upgrading =
+moving the consumer to another group via the Admin API — done by the thin **admin portal**.
 
-**Developer portal UI** (usage bar + upgrade buttons): open
-**http://localhost:8082/portal** — it polls live usage every 2s and shows Upgrade buttons.
-
-Prove it on the command line (get `$TOKEN` from section 3):
+### Bring up the gateway (Podman)
 ```bash
-API=http://localhost:8082
-# SILVER allows 5/min; the 6th returns 429
+./scripts/gen-ob-pki.sh                # OBIE certs/keys (if not already generated)
+./scripts/run-apisix-podman.sh         # etcd + redis + APISIX, then Admin API bootstrap
+(cd admin-portal && mvn quarkus:dev)   # admin portal on http://localhost:8090
+```
+Requires Podman (the machine running) plus the host-run consent-auth + bala-bank.
+
+### Admin portal UI
+Open **http://localhost:8090** — live usage bar (polls every 2s; tier+limit from the APISIX
+Admin API, usage from APISIX's Redis counters) and Silver/Gold/Diamond upgrade buttons.
+
+### Prove it on the command line (get `$TOKEN` from section 3)
+```bash
+GW=http://localhost:9080; PORTAL=http://localhost:8090
+# SILVER allows 5/min; the 6th returns 429 (enforced by APISIX limit-count)
 for n in $(seq 1 7); do
   curl -s -o /dev/null -w "req $n -> %{http_code}\n" \
-    $API/open-banking/v3.1/aisp/accounts -H "Authorization: Bearer $TOKEN"
+    $GW/open-banking/v3.1/aisp/accounts -H "Authorization: Bearer $TOKEN"
 done
+curl -s $PORTAL/api/state                       # {tier:SILVER, used:5, limit:5, ...}
 
-# Upgrade to GOLD (what the portal button does) -> allowance rises to 20/min immediately
-curl -s -X POST $API/portal/upgrade --data-urlencode clientId=mohana-tpp --data-urlencode tier=GOLD
-curl -s "$API/portal/usage?clientId=mohana-tpp"      # {tier:GOLD, limit:20, used:.., remaining:..}
+# Upgrade to GOLD (Admin API consumer group move) -> allowance rises to 20/min
+curl -s -X POST $PORTAL/upgrade --data-urlencode tier=gold
+curl -s $PORTAL/api/state                        # {tier:GOLD, limit:20, ...}
 ```
-
-Responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers; a
-429 also returns an OBIE error (`UK.OBIE.Rate.LimitExceeded`). The gateway equivalent
-(APISIX consumer-groups + limit-count) is in
-[gateway/apisix/consumer-groups.yaml](gateway/apisix/consumer-groups.yaml).
+Gateway responses carry `X-RateLimit-Limit/Remaining/Reset`. The config that drives this is in
+[gateway/apisix/podman/config.yaml](gateway/apisix/podman/config.yaml) and applied by
+[scripts/apisix-bootstrap.sh](scripts/apisix-bootstrap.sh).
 
 ## 5. Stop
 

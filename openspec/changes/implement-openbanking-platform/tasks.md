@@ -47,7 +47,7 @@
 
 ## 6. Full OBIE API standard conformance (openbanking-api-standard)
 
-- [ ] 6.1 Adopt OBIE Read/Write OpenAPI definitions and generate/align DTOs and error model (Code/Id/Message/Errors)
+- [x] 6.1 Align AIS DTOs + envelope to true OBIE JSON: PascalCase fields, nested `Data.<Resource>` arrays, `Account[]` identifier block, string `Amount`, and PascalCase error model (Code/Id/Message/Errors[].ErrorCode)
 - [ ] 6.2 Complete AISP surface: account-access-consents (POST/GET/DELETE), accounts, balances, transactions, beneficiaries, direct-debits, standing-orders, scheduled-payments, products, offers, party/parties, statements
 - [ ] 6.3 Complete PISP surface: domestic + scheduled + standing-order, international (+scheduled/standing-order), file-payments, payment-details, and PISP funds-confirmation
 - [ ] 6.4 Implement CBPII funds-confirmation-consents + funds-confirmations
@@ -67,12 +67,13 @@
 
 ## 9. Tiered API plans & usage portal (api-plans)
 
-- [x] 9.1 Add `Tier` enum (SILVER/GOLD/DIAMOND allowances) and `client_id` token claim
-- [x] 9.2 Persist TPP plan (TppPlanEntity + seed mohana-tpp=SILVER) as the live limit source
-- [x] 9.3 Implement in-app tiered rate limiter (per-minute window, X-RateLimit-* headers, OBIE 429)
-- [x] 9.4 Build developer portal UI: live usage bar + upgrade buttons; `/portal/usage` JSON + `/portal/upgrade`
-- [x] 9.5 Add APISIX consumer-groups reference config (limit-count per tier) for the gateway path
-- [ ] 9.6 Wire APISIX consumer-group assignment end-to-end and verify tier limits at the gateway (needs Docker)
+- [x] 9.1 Add `Tier` enum (SILVER/GOLD/DIAMOND allowances) and `client_id`/`key` token claims
+- [x] 9.2 Enforce tiers in APISIX: consumer-groups (silver/gold/diamond) + limit-count (redis policy)
+- [x] 9.3 Identify each TPP as an APISIX `jwt-auth` consumer keyed on the `client_id` claim
+- [x] 9.4 Build thin admin-portal: tier/limit from Admin API, live usage from Redis, upgrade via Admin API
+- [x] 9.5 Bring up the gateway stack on Podman (etcd+redis+APISIX) + Admin API bootstrap script
+- [x] 9.6 Verify tiered limits at the gateway end-to-end (SILVER 5→429, upgrade→GOLD 20 allowed; 2026-06-25)
+- [x] 9.7 Remove the transient in-ASPSP rate limiter/portal from bala-bank (APISIX is now the sole enforcer)
 
 ## 8. Verification
 

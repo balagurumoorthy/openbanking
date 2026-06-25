@@ -47,6 +47,17 @@ Each service has a multi-stage Dockerfile producing a GraalVM native binary in a
 ### End-to-end testing: Cucumber (BDD) over plain integration tests
 The end-to-end flow is specified and executed as **Cucumber-JVM** (Gherkin `.feature` files) driving the deployed platform. Each spec scenario (login → permission/account selection → token → AIS read → payment) maps to a Gherkin scenario, keeping tests readable and traceable to requirements. Step definitions use **REST Assured** for HTTP/JSON assertions and a lightweight headless browser/HTTP client for the redirect-based consent UI. Alternative considered: Karate — rejected to keep a single JVM/Java toolchain consistent with the services; plain JUnit integration tests are retained per-service for native-image validation, with Cucumber reserved for cross-service E2E. The Cucumber suite runs both locally (against `minikube`/port-forward) and as a Kubernetes Job in-cluster.
 
+### Tiered API plans live in APISIX, not the ASPSP
+Rate-limit counting, the per-tier allowance, and the upgrade action are **gateway concerns**, so
+they live in APISIX: each TPP is a `jwt-auth` consumer (identified by the token's `client_id`
+claim), assigned to a **consumer-group** (silver/gold/diamond) whose `limit-count` plugin holds
+the allowance and counts in **Redis**. An **upgrade** is just moving the consumer to a different
+group via the Admin API — no plan/usage logic in bala-bank. A thin **admin-portal** service reads
+the tier/limit from the Admin API and live usage from the Redis counters, and performs upgrades
+via the Admin API. (Admin API ⇒ APISIX runs in traditional/etcd mode, not standalone YAML.)
+Alternative considered: enforce in the ASPSP (bala-bank) — rejected as it puts gateway concerns in
+the resource server; it was used only as a transient local stand-in before Podman was available.
+
 ### Tech stack summary
 - **Language/runtime**: Java 21, GraalVM native-image.
 - **Framework**: Quarkus (RESTEasy Reactive, SmallRye OIDC/JWT, Hibernate ORM with Panache, Qute templates for the consent UI).

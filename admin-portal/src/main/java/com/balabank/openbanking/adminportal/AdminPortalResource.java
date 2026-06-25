@@ -71,8 +71,8 @@ public class AdminPortalResource {
         String tier = apisix.getValue("/apisix/admin/consumers/" + consumer).path("group_id").asText("silver");
         int limit = apisix.getValue("/apisix/admin/consumer_groups/" + tier)
                 .path("plugins").path("limit-count").path("count").asInt(0);
-        int used = currentUsage();
-        int remaining = Math.max(0, limit - used);
+        int remaining = currentRemaining(limit);
+        int used = Math.max(0, limit - remaining);
         int pct = limit == 0 ? 0 : Math.min(100, used * 100 / limit);
         return Map.of(
                 "consumer", consumer,
@@ -85,21 +85,36 @@ public class AdminPortalResource {
                 "tiers", TIERS);
     }
 
-    /** Sum APISIX limit-count counters for this consumer across routes (current window). */
-    private int currentUsage() {
-        var keyCmds = redis.key();
-        var valCmds = redis.value(String.class);
-        int total = 0;
-        for (String k : keyCmds.keys("*" + consumer)) {
-            String v = valCmds.get(k);
-            if (v != null) {
+    /**
+     * Reads the current remaining quota for this consumer from APISIX's limit-count Redis
+     * counters. Keys look like {@code plugin-limit-count<route>:<hash>:<consumer>} and the
+     * VALUE is the remaining count (limit-count decrements from the allowance). Stale keys from
+     * a prior tier/config may linger until their TTL expires, so we take the best in-range value.
+     */
+    private int currentRemaining(int limit) {
+        Integer best = null;
+        io.vertx.mutiny.redis.client.Response keys = redis.execute("KEYS", "*" + consumer);
+        if (keys != null) {
+            for (io.vertx.mutiny.redis.client.Response k : keys) {
+                io.vertx.mutiny.redis.client.Response v = redis.execute("GET", k.toString());
+                if (v == null) {
+                    continue;
+                }
                 try {
-                    total += Integer.parseInt(v.trim());
+                    int remaining = Integer.parseInt(v.toString().trim());
+                    // Clamp to [0, limit]; ignore stale keys from other tiers (remaining > limit).
+                    if (remaining > limit) {
+                        continue;
+                    }
+                    int clamped = Math.max(0, remaining);
+                    if (best == null || clamped > best) {
+                        best = clamped;
+                    }
                 } catch (NumberFormatException ignored) {
-                    // limit-count may store a struct on some versions; skip non-numeric
+                    // some versions store a struct; skip non-numeric
                 }
             }
         }
-        return total;
+        return best == null ? limit : best;
     }
 }
