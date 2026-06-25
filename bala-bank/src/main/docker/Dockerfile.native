@@ -1,0 +1,16 @@
+# Multi-stage GraalVM native build for bala-bank.
+# Stage 1: build the native executable inside a Mandrel builder image.
+FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 AS build
+USER root
+WORKDIR /code
+COPY --chown=quarkus:quarkus . /code
+RUN ./mvnw -q -pl common,bala-bank -am -Pnative -DskipTests package
+
+# Stage 2: minimal runtime image with just the native binary.
+FROM quay.io/quarkus/quarkus-micro-image:2.0
+WORKDIR /work
+COPY --from=build /code/bala-bank/target/*-runner /work/application
+RUN chmod 775 /work/application
+EXPOSE 8082
+USER 1001
+ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]

@@ -1,0 +1,23 @@
+imageRegistry: ""        # empty => use locally loaded minikube images
+imageTag: "1.0.0-SNAPSHOT"
+imagePullPolicy: IfNotPresent
+
+mtls:
+  enabled: false          # toggle gateway mTLS; keep off for first bring-up
+
+services:
+  balaBank:
+    image: bala-bank
+    port: 8082
+  consentAuth:
+    image: consent-auth
+    port: 8081
+    nodePort: 30081
+  mohanaTpp:
+    image: mohana-tpp
+    port: 8080
+    nodePort: 30080
+  apisix:
+    image: apache/apisix:3.9.1-debian
+    port: 9080
+    nodePort: 30090

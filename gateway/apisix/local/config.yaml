@@ -1,0 +1,18 @@
+# APISIX standalone config for LOCAL docker run.
+# Plain HTTP on 9080 (JWT only) and TLS+mTLS on 9443 (TPP transport cert required).
+deployment:
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
+apisix:
+  node_listen: 9080
+  enable_admin: false
+  ssl:
+    enable: true
+    listen:
+      - port: 9443
+        enable_http2: true
+nginx_config:
+  http:
+    lua_shared_dict:
+      discovery: 1m

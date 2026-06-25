@@ -1,0 +1,40 @@
+# Tiered rate limits at the APISIX gateway (reference config for the Docker/minikube path).
+#
+# In the gateway path, each TPP is an APISIX consumer identified from the JWT client_id claim.
+# Consumers are assigned to a consumer-group (silver/gold/diamond); each group carries a
+# limit-count plugin with its per-minute allowance. This mirrors the in-app RateLimitFilter
+# (com.balabank.openbanking.balabank.plan.RateLimitFilter) used in local mode.
+
+consumer_groups:
+  - id: silver
+    plugins:
+      limit-count:
+        count: 5
+        time_window: 60
+        rejected_code: 429
+        key_type: var
+        key: "http_x_client_id"
+  - id: gold
+    plugins:
+      limit-count:
+        count: 20
+        time_window: 60
+        rejected_code: 429
+        key_type: var
+        key: "http_x_client_id"
+  - id: diamond
+    plugins:
+      limit-count:
+        count: 100
+        time_window: 60
+        rejected_code: 429
+        key_type: var
+        key: "http_x_client_id"
+
+consumers:
+  - username: mohana_tpp
+    group_id: silver           # upgrade by moving the consumer to gold/diamond
+    plugins:
+      key-auth:
+        key: mohana-tpp
+#END

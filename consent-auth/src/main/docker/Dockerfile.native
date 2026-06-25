@@ -1,0 +1,14 @@
+# Multi-stage GraalVM native build for consent-auth.
+FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 AS build
+USER root
+WORKDIR /code
+COPY --chown=quarkus:quarkus . /code
+RUN ./mvnw -q -pl common,consent-auth -am -Pnative -DskipTests package
+
+FROM quay.io/quarkus/quarkus-micro-image:2.0
+WORKDIR /work
+COPY --from=build /code/consent-auth/target/*-runner /work/application
+RUN chmod 775 /work/application
+EXPOSE 8081
+USER 1001
+ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]

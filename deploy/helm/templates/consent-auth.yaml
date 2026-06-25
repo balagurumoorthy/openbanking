@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consent-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: consent-auth }
+  template:
+    metadata:
+      labels: { app: consent-auth }
+    spec:
+      containers:
+        - name: consent-auth
+          image: "{{ .Values.imageRegistry }}{{ .Values.services.consentAuth.image }}:{{ .Values.imageTag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.consentAuth.port }}
+          env:
+            - name: OB_JWT_PRIVATE_KEY
+              value: /pki/jwt-signing-pkcs8.key
+            - name: OB_JWT_PUBLIC_KEY
+              value: /pki/jwt-signing.pub
+            - name: OB_ISSUER_BASE
+              value: http://consent-auth:{{ .Values.services.consentAuth.port }}
+          volumeMounts:
+            - name: pki
+              mountPath: /pki
+              readOnly: true
+      volumes:
+        - name: pki
+          secret:
+            secretName: ob-pki
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: consent-auth
+spec:
+  type: NodePort
+  selector: { app: consent-auth }
+  ports:
+    - port: {{ .Values.services.consentAuth.port }}
+      targetPort: {{ .Values.services.consentAuth.port }}
+      nodePort: {{ .Values.services.consentAuth.nodePort }}

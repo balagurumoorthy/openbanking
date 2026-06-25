@@ -1,0 +1,22 @@
+# Runs the Cucumber E2E suite in-cluster against the deployed platform.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: e2e-cucumber
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: e2e
+          image: maven:3.9-eclipse-temurin-21
+          command: ["sh", "-c"]
+          args:
+            - >
+              git clone https://example.local/openbanking /src || cp -r /workspace /src;
+              cd /src &&
+              mvn -pl common,e2e-tests -am -Pe2e test
+              -Dauth.base=http://consent-auth:8081
+              -Dgateway.base=http://apisix-gateway:9080
+              -Dtpp.redirect=http://mohana-tpp:8080/callback

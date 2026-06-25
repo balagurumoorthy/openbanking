@@ -1,0 +1,40 @@
+upstreams:
+  - id: bala-bank
+    type: roundrobin
+    nodes:
+      "bala-bank:8082": 1
+
+routes:
+  - id: aisp
+    uri: /open-banking/v3.1/aisp/*
+    upstream_id: bala-bank
+    plugins:
+      openid-connect:
+        bearer_only: true
+        use_jwks: true
+        discovery: "http://consent-auth:8081/.well-known/openid-configuration"
+        token_signing_alg_values_expected: RS256
+        scope: accounts
+      limit-req:
+        rate: 20
+        burst: 10
+        rejected_code: 429
+        key_type: var
+        key: remote_addr
+  - id: pisp
+    uri: /open-banking/v3.1/pisp/*
+    upstream_id: bala-bank
+    plugins:
+      openid-connect:
+        bearer_only: true
+        use_jwks: true
+        discovery: "http://consent-auth:8081/.well-known/openid-configuration"
+        token_signing_alg_values_expected: RS256
+        scope: payments
+      limit-req:
+        rate: 20
+        burst: 10
+        rejected_code: 429
+        key_type: var
+        key: remote_addr
+#END

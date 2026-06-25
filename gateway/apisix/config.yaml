@@ -1,0 +1,13 @@
+# APISIX standalone (declarative) config. The gateway fronts Bala Bank's Open Banking APIs.
+deployment:
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
+apisix:
+  node_listen: 9080
+  enable_admin: false
+# mTLS listener (toggle via deploy): serves the gateway cert and requires a client cert from the TPP.
+  ssl:
+    enable: true
+    listen:
+      - port: 9443

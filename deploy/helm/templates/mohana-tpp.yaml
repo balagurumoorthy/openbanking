@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mohana-tpp
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: mohana-tpp }
+  template:
+    metadata:
+      labels: { app: mohana-tpp }
+    spec:
+      containers:
+        - name: mohana-tpp
+          image: "{{ .Values.imageRegistry }}{{ .Values.services.mohanaTpp.image }}:{{ .Values.imageTag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.mohanaTpp.port }}
+          env:
+            - name: AUTH_BASE
+              value: http://consent-auth:{{ .Values.services.consentAuth.port }}
+            - name: AUTH_PUBLIC_BASE
+              value: "http://localhost:{{ .Values.services.consentAuth.nodePort }}"
+            - name: GATEWAY_BASE
+              value: http://apisix-gateway:{{ .Values.services.apisix.port }}
+            - name: TPP_REDIRECT_URI
+              value: "http://localhost:{{ .Values.services.mohanaTpp.nodePort }}/callback"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mohana-tpp
+spec:
+  type: NodePort
+  selector: { app: mohana-tpp }
+  ports:
+    - port: {{ .Values.services.mohanaTpp.port }}
+      targetPort: {{ .Values.services.mohanaTpp.port }}
+      nodePort: {{ .Values.services.mohanaTpp.nodePort }}

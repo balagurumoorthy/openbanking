@@ -1,0 +1,16 @@
+target/
+*.class
+certs/
+.idea/
+*.iml
+.mvn/
+mvnw
+mvnw.cmd
+.claude
+.agents
+.codex
+.github
+.opencode
+.qwen
+.gemini
+NUL

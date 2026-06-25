@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bala-bank
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: bala-bank }
+  template:
+    metadata:
+      labels: { app: bala-bank }
+    spec:
+      containers:
+        - name: bala-bank
+          image: "{{ .Values.imageRegistry }}{{ .Values.services.balaBank.image }}:{{ .Values.imageTag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.balaBank.port }}
+          env:
+            - name: OB_JWT_PUBLIC_KEY
+              value: /pki/jwt-signing.pub
+          volumeMounts:
+            - name: pki
+              mountPath: /pki
+              readOnly: true
+          readinessProbe:
+            httpGet: { path: /q/health/ready, port: {{ .Values.services.balaBank.port }} }
+            initialDelaySeconds: 2
+      volumes:
+        - name: pki
+          secret:
+            secretName: ob-pki
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bala-bank
+spec:
+  selector: { app: bala-bank }
+  ports:
+    - port: {{ .Values.services.balaBank.port }}
+      targetPort: {{ .Values.services.balaBank.port }}

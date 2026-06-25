@@ -1,0 +1,60 @@
+# Template for the standalone routes/ssl document. scripts/run-apisix-local.sh inlines the
+# PEM bodies (APISIX standalone requires inline cert text, not file paths) and writes the
+# final apisix.yaml. Upstreams/discovery use host.docker.internal to reach host JVM services.
+
+upstreams:
+  - id: bala-bank
+    type: roundrobin
+    nodes:
+      "host.docker.internal:8082": 1
+
+ssls:
+  - id: gateway-mtls
+    snis:
+      - "localhost"
+      - "apisix-gateway.balabank.local"
+      - "host.docker.internal"
+    cert: |
+__ASPSP_CERT__
+    key: |
+__ASPSP_KEY__
+    client:
+      ca: |
+__CA_BUNDLE__
+      depth: 2
+      # mTLS: a client (TPP) transport cert signed by the OB CA bundle is required on 9443.
+
+routes:
+  - id: aisp
+    uri: /open-banking/v3.1/aisp/*
+    upstream_id: bala-bank
+    plugins:
+      openid-connect:
+        bearer_only: true
+        use_jwks: true
+        discovery: "http://host.docker.internal:8081/.well-known/openid-configuration"
+        token_signing_alg_values_expected: RS256
+        scope: accounts
+      limit-req:
+        rate: 20
+        burst: 10
+        rejected_code: 429
+        key_type: var
+        key: remote_addr
+  - id: pisp
+    uri: /open-banking/v3.1/pisp/*
+    upstream_id: bala-bank
+    plugins:
+      openid-connect:
+        bearer_only: true
+        use_jwks: true
+        discovery: "http://host.docker.internal:8081/.well-known/openid-configuration"
+        token_signing_alg_values_expected: RS256
+        scope: payments
+      limit-req:
+        rate: 20
+        burst: 10
+        rejected_code: 429
+        key_type: var
+        key: remote_addr
+#END

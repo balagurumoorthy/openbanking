@@ -1,0 +1,26 @@
+# APISIX traditional mode (etcd-backed) so the Admin API is available for dynamic
+# consumer/group changes (tier upgrades). Used by scripts/run-apisix-podman.sh.
+apisix:
+  node_listen: 9080
+  enable_admin: true
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  admin:
+    admin_key_required: true
+    # Demo admin key — fine for local use only.
+    admin_key:
+      - name: admin
+        key: ob-admin-key-0001
+        role: admin
+    allow_admin:
+      - 0.0.0.0/0
+    admin_listen:
+      ip: 0.0.0.0
+      port: 9180
+  etcd:
+    host:
+      - "http://etcd:2379"
+    prefix: /apisix
+    timeout: 30
