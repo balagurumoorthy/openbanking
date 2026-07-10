@@ -39,13 +39,21 @@ public class TppResource {
 
     /** state -> consentId, awaiting callback. Replace with a real session store in production. */
     private final Map<String, String> pendingState = new ConcurrentHashMap<>();
+    /** state -> payment instruction, awaiting callback (the payments-scope authorisation). */
+    private final Map<String, PaymentDraft> pendingPayments = new ConcurrentHashMap<>();
     /** Issued tokens keyed by an opaque session token returned to the browser. */
     private final Map<String, String> sessionTokens = new ConcurrentHashMap<>();
+
+    /** A domestic-payment instruction captured on the /pay form, executed after authorisation. */
+    record PaymentDraft(String debtorAccountId, String creditorIdentification, String creditorName,
+                        String amount, String currency, String reference) {}
 
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String home() {
-        return "<h1>MohanaTPP</h1><p><a href=\"/connect\">Connect your Bala Bank account</a></p>";
+        return "<h1>MohanaTPP</h1>"
+                + "<p><a href=\"/connect\">Connect your Bala Bank account</a> — view accounts &amp; balances</p>"
+                + "<p><a href=\"/pay\">Make a domestic payment</a></p>";
     }
 
     /** Step 1+2: create an account-access intent, then redirect the user to /authorize. */
@@ -79,17 +87,100 @@ public class TppResource {
         if (error != null) {
             return Response.ok("<h1>Consent denied</h1><p>" + error + "</p>").build();
         }
-        if (state == null || !pendingState.containsKey(state)) {
+        boolean isPayment = pendingPayments.containsKey(state);
+        if (state == null || (!pendingState.containsKey(state) && !isPayment)) {
             return Response.status(400).entity("<h1>Invalid state</h1>").build();
         }
-        pendingState.remove(state);
 
         Map<String, Object> tokenResp = authClient.token("authorization_code", code, redirectUri, clientId, clientSecret);
         String accessToken = (String) tokenResp.get("access_token");
+
+        if (isPayment) {
+            PaymentDraft draft = pendingPayments.remove(state);
+            return executePayment("Bearer " + accessToken, draft);
+        }
+
+        pendingState.remove(state);
         String session = UUID.randomUUID().toString();
         sessionTokens.put(session, accessToken);
-
         return Response.seeOther(URI.create("/dashboard?s=" + session)).build();
+    }
+
+    /** Step 1 (payments): show the payment instruction form. */
+    @GET
+    @Path("/pay")
+    @Produces(MediaType.TEXT_HTML)
+    public String payForm() {
+        return "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>MohanaTPP — Make a payment</title>"
+                + "<style>body{font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;color:#1a2b4a}"
+                + "label{display:block;margin:10px 0 4px}input{width:100%;padding:8px}"
+                + ".btn{margin-top:18px;padding:10px 18px;border:0;border-radius:8px;background:#1f6feb;color:#fff;font-size:1rem;cursor:pointer}</style>"
+                + "</head><body><h1>Make a domestic payment</h1>"
+                + "<p>You'll be sent to Bala Bank to authorise it.</p>"
+                + "<form method=\"post\" action=\"/pay/start\">"
+                + "<label>From account (debtor)</label><input name=\"debtorAccountId\" value=\"GB-ALICE-001\">"
+                + "<label>Payee name</label><input name=\"creditorName\" value=\"Acme Utilities\">"
+                + "<label>Payee sort code + account</label><input name=\"creditorIdentification\" value=\"20-00-00 41414141\">"
+                + "<label>Amount</label><input name=\"amount\" value=\"25.00\">"
+                + "<label>Currency</label><input name=\"currency\" value=\"GBP\">"
+                + "<label>Reference</label><input name=\"reference\" value=\"Invoice 42\">"
+                + "<button class=\"btn\" type=\"submit\">Authorise payment</button></form></body></html>";
+    }
+
+    /** Step 2 (payments): create a payment-consent intent, then redirect to /authorize (payments scope). */
+    @POST
+    @Path("/pay/start")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public Response payStart(@FormParam("debtorAccountId") String debtorAccountId,
+                             @FormParam("creditorIdentification") String creditorIdentification,
+                             @FormParam("creditorName") String creditorName,
+                             @FormParam("amount") String amount,
+                             @FormParam("currency") String currency,
+                             @FormParam("reference") String reference) {
+        Map<String, Object> intent = authClient.createPaymentIntent(new ConsentAuthClient.PaymentIntentRequest(clientId));
+        @SuppressWarnings("unchecked")
+        String consentId = (String) ((Map<String, Object>) intent.get("Data")).get("ConsentId");
+
+        String state = UUID.randomUUID().toString();
+        pendingPayments.put(state, new PaymentDraft(debtorAccountId, creditorIdentification, creditorName,
+                amount, currency, reference));
+
+        String location = authPublicBase + "/authorize"
+                + "?client_id=" + enc(clientId)
+                + "&redirect_uri=" + enc(redirectUri)
+                + "&scope=" + enc("payments")
+                + "&state=" + enc(state)
+                + "&consent_id=" + enc(consentId);
+        return Response.seeOther(URI.create(location)).build();
+    }
+
+    /** Step 3 (payments): create the ASPSP payment-consent and execute it via the gateway, render status. */
+    private Response executePayment(String bearer, PaymentDraft d) {
+        try {
+            Map<String, Object> consentBody = Map.of(
+                    "debtorAccountId", d.debtorAccountId(), "creditorIdentification", d.creditorIdentification(),
+                    "creditorName", d.creditorName(), "amount", d.amount(), "currency", d.currency(),
+                    "reference", d.reference());
+            Map<String, Object> consentResp = gateway.createPaymentConsent(bearer, consentBody);
+            @SuppressWarnings("unchecked")
+            String pcon = (String) ((Map<String, Object>) consentResp.get("Data")).get("ConsentId");
+
+            Map<String, Object> payResp = gateway.executePayment(bearer, Map.of("consentId", pcon));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) payResp.get("Data");
+            String status = String.valueOf(data.get("Status"));
+            String paymentId = String.valueOf(data.get("DomesticPaymentId"));
+            return Response.ok("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Payment submitted</title>"
+                    + "<style>body{font-family:system-ui,sans-serif;max-width:520px;margin:40px auto;color:#1a2b4a}"
+                    + ".ok{font-size:1.4rem;font-weight:600;color:#1a7f37}.muted{color:#6a7689}</style></head><body>"
+                    + "<h1>Payment submitted</h1>"
+                    + "<div class=\"ok\">" + esc(status) + "</div>"
+                    + "<p class=\"muted\">Payment id " + esc(paymentId) + " — " + esc(d.amount()) + " "
+                    + esc(d.currency()) + " to " + esc(d.creditorName()) + "</p>"
+                    + "<p><a href=\"/\">Back</a></p></body></html>").build();
+        } catch (WebApplicationException e) {
+            return gatewayError(e, "/pay");
+        }
     }
 
     /** Step 6 (JSON): read account data via the gateway. */
@@ -208,6 +299,21 @@ public class TppResource {
         }
         Object nick = acct.get("Nickname");
         return nick != null ? String.valueOf(nick) : fallback;
+    }
+
+    /** 401/403 from the gateway → a friendly page prompting the user to re-consent. */
+    private static Response gatewayError(WebApplicationException e, String retryPath) {
+        int status = e.getResponse().getStatus();
+        String msg = status == 401 ? "Your authorisation has expired or is missing."
+                : status == 403 ? "This action isn't covered by your consent (or the consent was revoked)."
+                : "The gateway rejected the request (" + status + ").";
+        return Response.status(status).entity(
+                "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Re-consent needed</title>"
+                + "<style>body{font-family:system-ui,sans-serif;max-width:520px;margin:40px auto;color:#1a2b4a}"
+                + ".err{color:#b3261e}</style></head><body>"
+                + "<h1 class=\"err\">Authorisation needed (" + status + ")</h1>"
+                + "<p>" + esc(msg) + "</p>"
+                + "<p><a href=\"" + esc(retryPath) + "\">Start again / re-consent</a></p></body></html>").build();
     }
 
     private static String esc(String s) {

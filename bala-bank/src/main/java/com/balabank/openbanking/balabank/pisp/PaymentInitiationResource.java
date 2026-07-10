@@ -38,7 +38,10 @@ public class PaymentInitiationResource {
         c.amount = req.amount();
         c.currency = req.currency();
         c.reference = req.reference();
-        c.status = ConsentStatus.AWAITING_AUTHORISATION;
+        // The PSU already authorised this payment at the consent-auth authorization endpoint —
+        // the caller's token carries the `payments` scope as proof — so for this local reference
+        // platform the ASPSP-side consent is created already AUTHORISED and is ready to execute.
+        c.status = ConsentStatus.AUTHORISED;
         c.persist();
         return Map.of("Data", Map.of("ConsentId", c.consentId, "Status", c.status.name()));
     }

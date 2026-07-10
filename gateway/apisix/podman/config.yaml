@@ -3,6 +3,23 @@
 apisix:
   node_listen: 9080
   enable_admin: true
+  # mTLS termination (task 4.4): a second, TLS listener on 9443 that requires a
+  # client certificate (the TPP's OBWAC transport cert) once the toggle below is
+  # enabled. Declaring the listener here is harmless when MTLS_ENABLED is off — no
+  # SSL object is ever pushed to etcd in that case, so APISIX has no certificate to
+  # serve on 9443 and TLS handshakes against it simply fail closed. The plain HTTP
+  # listener on 9080 above is untouched either way, so the default first-bring-up
+  # keeps working without any client cert.
+  #
+  # The server cert (aspsp-transport, from scripts/gen-ob-pki.sh) and the trusted
+  # client CA bundle (ob-ca-bundle.crt) are registered dynamically via the Admin
+  # API (/apisix/admin/ssl) from scripts/apisix-bootstrap.sh, guarded by the
+  # MTLS_ENABLED env var — see that script for the toggle.
+  ssl:
+    enable: true
+    listen:
+      - port: 9443
+        enable_http2: false
 deployment:
   role: traditional
   role_traditional:

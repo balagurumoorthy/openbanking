@@ -14,11 +14,19 @@ public interface ConsentAuthClient {
 
     record IntentRequest(String clientId, List<String> permissions) {}
 
+    record PaymentIntentRequest(String clientId) {}
+
     @POST
     @Path("/account-access-consents")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     Map<String, Object> createIntent(IntentRequest req);
+
+    @POST
+    @Path("/domestic-payment-consents")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    Map<String, Object> createPaymentIntent(PaymentIntentRequest req);
 
     @POST
     @Path("/token")

@@ -42,8 +42,18 @@ public class TokenResource {
             return error(400, "invalid_grant");
         }
         Consent consent = Consent.findById(ac.consentId);
-        if (consent == null || consent.status != ConsentStatus.AUTHORISED) {
+        if (consent == null) {
             return error(400, "invalid_grant");
+        }
+        if (consent.status == ConsentStatus.AUTHORISED
+                && consent.expiresAt != null && consent.expiresAt.isBefore(Instant.now())) {
+            consent.status = ConsentStatus.EXPIRED;
+        }
+        if (consent.status != ConsentStatus.AUTHORISED) {
+            String err = consent.status == ConsentStatus.EXPIRED ? "consent_expired"
+                    : consent.status == ConsentStatus.REVOKED ? "consent_revoked"
+                    : "invalid_grant";
+            return error(400, err);
         }
         ac.used = true;
 

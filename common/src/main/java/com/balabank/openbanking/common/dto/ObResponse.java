@@ -23,4 +23,24 @@ public record ObResponse<T>(
     public static ObResponse<Map<String, Object>> ofResource(String resourceName, Object items, String self) {
         return new ObResponse<>(Map.of(resourceName, items), Map.of("Self", self), Map.of("TotalPages", 1));
     }
+
+    /**
+     * Paginated variant: OBIE {@code Links} carries Self plus First/Last/Prev/Next as applicable,
+     * and {@code Meta} reports TotalPages. {@code page} is 1-based.
+     */
+    public static ObResponse<Map<String, Object>> ofResource(String resourceName, Object items,
+                                                             String self, int page, int totalPages) {
+        Map<String, String> links = new java.util.LinkedHashMap<>();
+        links.put("Self", self);
+        String base = self.contains("?") ? self + "&" : self + "?";
+        links.put("First", base + "page=1");
+        links.put("Last", base + "page=" + Math.max(1, totalPages));
+        if (page > 1) {
+            links.put("Prev", base + "page=" + (page - 1));
+        }
+        if (page < totalPages) {
+            links.put("Next", base + "page=" + (page + 1));
+        }
+        return new ObResponse<>(Map.of(resourceName, items), links, Map.of("TotalPages", Math.max(1, totalPages)));
+    }
 }

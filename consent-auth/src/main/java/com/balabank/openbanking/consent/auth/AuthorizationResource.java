@@ -45,9 +45,11 @@ public class AuthorizationResource {
         if (c == null) {
             throw new BadRequestException("Unknown consent_id");
         }
+        List<String> requested = java.util.Arrays.stream(c.requestedPermissions.split("\\s+"))
+                .filter(p -> !p.isBlank()).toList();
         return consent.data("clientId", clientId, "redirectUri", redirectUri,
                 "state", state, "consentId", consentId,
-                "permissions", List.of(c.requestedPermissions.split("\\s+")));
+                "permissions", requested);
     }
 
     @POST
@@ -70,6 +72,10 @@ public class AuthorizationResource {
         Consent c = Consent.findById(consentId);
         if (c == null) {
             throw new BadRequestException("Unknown consent_id");
+        }
+        if (c.status != ConsentStatus.AWAITING_AUTHORISATION) {
+            // Already decided, revoked, or expired: cannot be re-authorised.
+            return redirect(redirectUri + "?error=access_denied&state=" + enc(state));
         }
 
         if (!"approve".equalsIgnoreCase(decision)) {
