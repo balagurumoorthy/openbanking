@@ -144,20 +144,25 @@ error model. See [MANUAL-TEST.md](MANUAL-TEST.md) for sample bodies.
 
 - ✅ **Consent & login** (consent-auth): OAuth2 `/authorize` + `/token` (signed JWT, JWKS),
   custom consent UI to narrow permissions and pick accounts, sample customers seeded.
-- ✅ **ASPSP** (bala-bank): AIS (accounts, balances, transactions) with per-request consent +
-  scope enforcement and OBIE error bodies; PIS domestic-payment consent + execution; JWKS validation.
-- ✅ **TPP** (mohana-tpp): consent initiation, callback/token exchange, and an accounts +
-  **balances dashboard** consumed via the gateway.
+- ✅ **Consent lifecycle**: revocation (`DELETE /account-access-consents/{id}`) + lazy expiry;
+  expired/revoked consents are rejected at `/token`.
+- ✅ **ASPSP** (bala-bank): **full OBIE surface** — AISP (accounts, balances, transactions,
+  beneficiaries, direct-debits, standing-orders, scheduled-payments, statements, party, products,
+  offers, consent GET/DELETE); PISP (domestic + scheduled + standing-order + international payments,
+  payment-details, funds-confirmation); CBPII funds-confirmation; Event Notification
+  (subscriptions, callback-urls, `POST /events`). Per-request consent + scope enforcement, OBIE
+  error bodies, `x-fapi-interaction-id`, seeded for alice + bob ([SAMPLE-DATA](bala-bank/SAMPLE-DATA.md)).
+- ✅ **TPP** (mohana-tpp): account consent + **balances dashboard**, plus a **payment flow**
+  (`/pay` → authorise → execute → status) and 401/403 re-consent UX.
 - ✅ **APISIX gateway** (Podman): routes/upstreams, jwt-auth against the JWKS, per-route scope,
-  and **tiered limit-count** (silver/gold/diamond → 429 over allowance), verified end-to-end.
-- ✅ **Tiered plans & admin portal**: APISIX-native enforcement + thin portal for live usage and
-  tier upgrade via the Admin API.
-- ✅ **OBIE JSON conformance** for the AIS surface (PascalCase, nested `Data`, string `Amount`).
+  **tiered limit-count** (silver/gold/diamond → 429), and **mTLS** on `:9443` behind `MTLS_ENABLED`.
+- ✅ **Tiered plans & admin portal**: APISIX-native enforcement + thin portal (live usage + upgrade).
+- ✅ **OBIE JSON conformance** across AIS/PIS (PascalCase, nested `Data`, string `Amount`,
+  pagination Links/Meta helper).
 - ✅ **OBIE PKI**: scripted root/issuing CA, OBWAC (transport) + OBSEAL (signing) certs, JWT keys.
 - ✅ **Local deployment**: minikube manifests + bring-up script; Cucumber BDD E2E (happy path + 401/deny).
 
-**Not yet done:** consent revocation/expiry lifecycle; gateway mTLS termination wired into the
-Podman setup (task 4.4); the broader OBIE surface (beneficiaries, standing-orders, direct-debits,
-CBPII funds-confirmation, event notification, `x-fapi-*` headers, pagination — task 6); PIS payment
-UI in the TPP; native-image build + in-cluster minikube run verification. See
-[tasks.md](openspec/changes/implement-openbanking-platform/tasks.md) for the full checklist.
+**Not yet done:** native-image build + in-cluster minikube run verification (task 8.1);
+automated OBIE schema/conformance checks (8.4); a `fundsconfirmations`-scoped token from
+consent-auth for CBPII; file-payments; folding the negative-path checks into the Cucumber suite.
+See [tasks.md](openspec/changes/implement-openbanking-platform/tasks.md) for the full checklist.
