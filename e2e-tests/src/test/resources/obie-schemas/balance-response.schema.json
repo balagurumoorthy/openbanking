@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "obie:OBReadBalance1",
+  "title": "OBIE OBReadBalance1 (subset)",
+  "type": "object",
+  "required": ["Data", "Links", "Meta"],
+  "properties": {
+    "Data": {
+      "type": "object",
+      "required": ["Balance"],
+      "properties": {
+        "Balance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["AccountId", "Amount", "CreditDebitIndicator", "Type"],
+            "properties": {
+              "AccountId": { "type": "string", "minLength": 1 },
+              "Amount": {
+                "type": "object",
+                "required": ["Amount", "Currency"],
+                "properties": {
+                  "Amount": { "type": "string", "pattern": "^-?\\d+(\\.\\d+)?$" },
+                  "Currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+                }
+              },
+              "CreditDebitIndicator": { "type": "string", "enum": ["Credit", "Debit"] },
+              "Type": { "type": "string", "minLength": 1 },
+              "DateTime": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "Links": {
+      "type": "object",
+      "required": ["Self"],
+      "properties": { "Self": { "type": "string", "minLength": 1 } }
+    },
+    "Meta": {
+      "type": "object",
+      "required": ["TotalPages"],
+      "properties": { "TotalPages": { "type": "integer", "minimum": 1 } }
+    }
+  }
+}

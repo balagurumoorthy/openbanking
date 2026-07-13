@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "obie:OBReadTransaction6",
+  "title": "OBIE OBReadTransaction6 (subset)",
+  "type": "object",
+  "required": ["Data", "Links", "Meta"],
+  "properties": {
+    "Data": {
+      "type": "object",
+      "required": ["Transaction"],
+      "properties": {
+        "Transaction": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["AccountId", "Amount", "CreditDebitIndicator", "Status"],
+            "properties": {
+              "TransactionId": { "type": ["string", "null"] },
+              "AccountId": { "type": "string", "minLength": 1 },
+              "CreditDebitIndicator": { "type": "string", "enum": ["Credit", "Debit"] },
+              "Status": { "type": "string", "enum": ["Booked", "Pending"] },
+              "Amount": {
+                "type": "object",
+                "required": ["Amount", "Currency"],
+                "properties": {
+                  "Amount": { "type": "string", "pattern": "^-?\\d+(\\.\\d+)?$" },
+                  "Currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+                }
+              },
+              "BookingDateTime": { "type": ["string", "null"] },
+              "TransactionInformation": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "Links": {
+      "type": "object",
+      "required": ["Self"],
+      "properties": { "Self": { "type": "string", "minLength": 1 } }
+    },
+    "Meta": {
+      "type": "object",
+      "required": ["TotalPages"],
+      "properties": { "TotalPages": { "type": "integer", "minimum": 1 } }
+    }
+  }
+}

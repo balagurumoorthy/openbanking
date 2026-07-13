@@ -153,6 +153,23 @@ Gateway responses carry `X-RateLimit-Limit/Remaining/Reset`. The config that dri
 [gateway/apisix/podman/config.yaml](gateway/apisix/podman/config.yaml) and applied by
 [scripts/apisix-bootstrap.sh](scripts/apisix-bootstrap.sh).
 
+## 4c. OBIE conformance (offline JSON-Schema validation)
+
+Validates Bala Bank's AIS responses against OBIE JSON Schemas
+([e2e-tests/src/test/resources/obie-schemas/](e2e-tests/src/test/resources/obie-schemas/))
+with the networknt JSON-Schema validator — no gateway/Podman needed.
+
+```bash
+./scripts/run-conformance.sh          # boots consent-auth + bala-bank, runs the check, tears down
+```
+Or, with consent-auth (:8081) + bala-bank (:8082) already running:
+```bash
+mvn -pl e2e-tests -Pconformance test
+```
+`ObieConformanceTest` drives a real consent → token flow, then asserts the `accounts`,
+`balances`, `transactions` bodies (and a 403 error body) conform to the OBIE envelope
+(PascalCase, nested `Data.<Resource>`, string `Amount`, `Code/Id/Message/Errors[].ErrorCode`).
+
 ## 5. Stop
 
 - **PowerShell:** close the 3 service windows.

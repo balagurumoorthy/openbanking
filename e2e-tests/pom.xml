@@ -54,6 +54,19 @@
             <version>1.18.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!-- Offline OBIE JSON-Schema conformance validation (task 8.4) -->
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>1.5.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <profiles>
@@ -62,6 +75,30 @@
             <properties>
                 <skipTests>false</skipTests>
             </properties>
+        </profile>
+        <!--
+          Offline OBIE conformance (task 8.4): validates live AIS response bodies against the
+          JSON Schemas in src/test/resources/obie-schemas. Needs consent-auth (:8081) + bala-bank
+          (:8082) running (no gateway/Podman). Run: mvn -pl e2e-tests -Pconformance test
+        -->
+        <profile>
+            <id>conformance</id>
+            <properties>
+                <skipTests>false</skipTests>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/ObieConformanceTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

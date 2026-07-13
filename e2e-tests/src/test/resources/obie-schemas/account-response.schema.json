@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "obie:OBReadAccount6",
+  "title": "OBIE OBReadAccount6 (subset)",
+  "type": "object",
+  "required": ["Data", "Links", "Meta"],
+  "properties": {
+    "Data": {
+      "type": "object",
+      "required": ["Account"],
+      "properties": {
+        "Account": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["AccountId", "Currency", "AccountType", "AccountSubType", "Account"],
+            "properties": {
+              "AccountId": { "type": "string", "minLength": 1 },
+              "Status": { "type": "string" },
+              "Currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+              "AccountType": { "type": "string", "enum": ["Personal", "Business"] },
+              "AccountSubType": { "type": "string", "minLength": 1 },
+              "Nickname": { "type": ["string", "null"] },
+              "Account": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["SchemeName", "Identification"],
+                  "properties": {
+                    "SchemeName": { "type": "string", "minLength": 1 },
+                    "Identification": { "type": "string", "minLength": 1 },
+                    "Name": { "type": ["string", "null"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Links": {
+      "type": "object",
+      "required": ["Self"],
+      "properties": { "Self": { "type": "string", "minLength": 1 } }
+    },
+    "Meta": {
+      "type": "object",
+      "required": ["TotalPages"],
+      "properties": { "TotalPages": { "type": "integer", "minimum": 1 } }
+    }
+  }
+}

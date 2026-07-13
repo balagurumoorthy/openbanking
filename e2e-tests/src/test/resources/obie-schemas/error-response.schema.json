@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "obie:OBErrorResponse1",
+  "title": "OBIE OBErrorResponse1 (subset)",
+  "type": "object",
+  "required": ["Code", "Message", "Errors"],
+  "properties": {
+    "Code": { "type": "string", "minLength": 1 },
+    "Id": { "type": ["string", "null"] },
+    "Message": { "type": "string", "minLength": 1 },
+    "Errors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["ErrorCode", "Message"],
+        "properties": {
+          "ErrorCode": { "type": "string", "minLength": 1 },
+          "Message": { "type": "string", "minLength": 1 },
+          "Path": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}
