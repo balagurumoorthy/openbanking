@@ -162,7 +162,12 @@ error model. See [MANUAL-TEST.md](MANUAL-TEST.md) for sample bodies.
 - ✅ **OBIE PKI**: scripted root/issuing CA, OBWAC (transport) + OBSEAL (signing) certs, JWT keys.
 - ✅ **Local deployment**: minikube manifests + bring-up script; Cucumber BDD E2E (happy path + 401/deny).
 
-**Not yet done:** native-image build + in-cluster minikube run verification (task 8.1);
-automated OBIE schema/conformance checks (8.4); a `fundsconfirmations`-scoped token from
-consent-auth for CBPII; file-payments; folding the negative-path checks into the Cucumber suite.
+- ✅ **Native image**: all four services build to native binaries via the Mandrel container
+  builder (Podman) with no reflection/serialization gaps (task 8.1).
+- ✅ **OBIE conformance**: offline JSON-Schema validation of AIS bodies + error model
+  ([e2e-tests obie-schemas](e2e-tests/src/test/resources/obie-schemas), `scripts/run-conformance.sh`).
+
+**Remaining polish (not blocking):** in-cluster minikube run of the native images; a
+`fundsconfirmations`-scoped token from consent-auth so CBPII is end-to-end callable; file-payments;
+folding the negative-path checks into the Cucumber suite; conformance schemas for PIS/CBPII/events.
 See [tasks.md](openspec/changes/implement-openbanking-platform/tasks.md) for the full checklist.

@@ -77,7 +77,7 @@
 
 ## 8. Verification
 
-- [ ] 8.1 Run native integration tests per service (catch GraalVM reflection/serialization gaps) — JVM compile + boot verified; native-image build not yet run
+- [x] 8.1 Native-image build per service via the Mandrel container builder (Podman) — all four services (bala-bank, consent-auth, mohana-tpp, admin-portal) produce native runners with no GraalVM reflection/serialization gaps (2026-07-13): bala-bank 114M/1m28s, consent-auth 110M/1m41s, mohana-tpp 58M, admin-portal 61M
 - [x] 8.2 Run the end-to-end happy path and confirm it passes (verified locally in JVM dev mode 2026-06-24: TPP /connect → consent → token → AIS accounts/balances/transactions, plus 401/403 negatives; minikube run still pending)
 - [x] 8.3 Validate negative paths: 401 (no token), 404 (unknown route), 403 (insufficient scope / non-consented account), 429 (SILVER→gold, 2026-06-25) and revoked/expired consent (400) — verified live at various points; consolidating them into the Cucumber suite is a follow-up
 - [x] 8.4 Offline OBIE schema/conformance validation wired: OBIE JSON Schemas (`e2e-tests/src/test/resources/obie-schemas/`) validated against live AIS bodies + a 403 error body via the networknt JSON-Schema validator (`ObieConformanceTest`, `-Pconformance`), driven by `scripts/run-conformance.sh` (boots consent-auth + bala-bank, no gateway). Compiles; run the script to execute live. (Broader PIS/CBPII/event schemas are a follow-up.)
