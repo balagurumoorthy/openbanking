@@ -3,7 +3,9 @@
 # in JVM dev mode, runs the JSON-Schema conformance test, then tears them down. No gateway/Podman.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export JAVA_HOME="${JAVA_HOME:-/c/Program Files/OpenJDK/jdk-21.0.2}"
+# Pin JDK 21 unconditionally — Quarkus 3.15.1 (Byte Buddy) does not support Java 25,
+# which may be the machine default. Override any inherited JAVA_HOME.
+export JAVA_HOME="/c/Program Files/OpenJDK/jdk-21.0.2"
 export PATH="$JAVA_HOME/bin:$PATH"
 CERTS="$ROOT/certs"
 mkdir -p "$ROOT/logs"
