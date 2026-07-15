@@ -19,7 +19,6 @@ apisix:
     enable: true
     listen:
       - port: 9443
-        enable_http2: false
 deployment:
   role: traditional
   role_traditional:

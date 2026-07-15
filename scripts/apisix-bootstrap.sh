@@ -25,11 +25,25 @@ ASPSP_CERT_FILE="${ASPSP_CERT_FILE:-$ROOT/certs/aspsp-transport-chain.crt}"   # 
 ASPSP_KEY_FILE="${ASPSP_KEY_FILE:-$ROOT/certs/aspsp-transport.key}"
 CLIENT_CA_FILE="${CLIENT_CA_FILE:-$ROOT/certs/ob-ca-bundle.crt}"              # issuing + root CA
 
-put() { curl -s -X PUT "$ADMIN$1" -H "X-API-KEY: $KEY" -H 'Content-Type: application/json' -d "$2" -o /dev/null -w "PUT $1 -> %{http_code}\n"; }
+# Capture the HTTP code via command substitution. The `|| true` guards against curl exiting
+# 23 ("write error" to /dev/null) on Git Bash/Windows *after* a successful call, which would
+# otherwise trip `set -e` and abort the bootstrap after the first PUT.
+put() {
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$ADMIN$1" \
+           -H "X-API-KEY: $KEY" -H 'Content-Type: application/json' -d "$2" 2>/dev/null) || true
+  echo "PUT $1 -> ${code:-ERR}"
+}
+
+# MSYS_NO_PATHCONV=1 (set above) keeps the /apisix/admin/... URL paths intact, but then
+# Git Bash no longer converts file paths for native programs — so hand Windows-form paths
+# to python. cygpath -w on Windows; identity elsewhere.
+winpath() { command -v cygpath >/dev/null 2>&1 && cygpath -w "$1" || printf '%s' "$1"; }
+readpem() { python -c "import json,sys; print(json.dumps(open(sys.argv[1]).read()))" "$(winpath "$1")"; }
 
 # JSON-escape the PEM public key for the jwt-auth consumer.
-PUBKEY_JSON=$(python -c "import json,sys; print(json.dumps(open(sys.argv[1]).read()))" "$PUBKEY_FILE")
-PRIVKEY_JSON=$(python -c "import json,sys; print(json.dumps(open(sys.argv[1]).read()))" "$PRIVKEY_FILE")
+PUBKEY_JSON=$(readpem "$PUBKEY_FILE")
+PRIVKEY_JSON=$(readpem "$PRIVKEY_FILE")
 
 echo "==> upstream: bala-bank"
 put /apisix/admin/upstreams/bala-bank "{\"type\":\"roundrobin\",\"nodes\":{\"${HOST_ALIAS}:8082\":1}}"
@@ -77,9 +91,9 @@ put /apisix/admin/routes/pisp "{
 # plain-HTTP 9080 happy path is unaffected.
 if [ "$MTLS_ENABLED" = "true" ]; then
   echo "==> mTLS: pushing SSL object (server=aspsp-transport, client CA=ob-ca-bundle) -> :9443"
-  CERT_JSON=$(python -c "import json,sys; print(json.dumps(open(sys.argv[1]).read()))" "$ASPSP_CERT_FILE")
-  KEY_JSON=$(python -c "import json,sys; print(json.dumps(open(sys.argv[1]).read()))" "$ASPSP_KEY_FILE")
-  CA_JSON=$(python -c "import json,sys; print(json.dumps(open(sys.argv[1]).read()))" "$CLIENT_CA_FILE")
+  CERT_JSON=$(readpem "$ASPSP_CERT_FILE")
+  KEY_JSON=$(readpem "$ASPSP_KEY_FILE")
+  CA_JSON=$(readpem "$CLIENT_CA_FILE")
   put /apisix/admin/ssls/ob-mtls "{
     \"snis\": [\"localhost\", \"host.docker.internal\", \"aspsp.balabank.local\"],
     \"cert\": ${CERT_JSON},

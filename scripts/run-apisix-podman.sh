@@ -13,6 +13,8 @@
 # cert on the 9443 listener (in addition to plain 9080). Defaults to off/false so a
 # first bring-up (before certs are provisioned or a client trusts them) just works.
 set -euo pipefail
+# Stop Git Bash rewriting container-side paths (e.g. /usr/local/apisix/...) in -v mounts.
+export MSYS_NO_PATHCONV=1
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$PATH:/c/Program Files/RedHat/Podman"
 NET=ob
@@ -44,9 +46,14 @@ podman rm -f ob-apisix >/dev/null 2>&1 || true
 # MTLS_ENABLED=true). The certs/ dir is always mounted read-only so the bootstrap
 # script's Admin API calls (curl reading PEMs off disk) and any future
 # static-cert approach both have the PKI available inside the container.
+# MSYS_NO_PATHCONV=1 keeps the container-side paths intact; give podman Windows-form
+# host paths (cygpath -w) for the -v mounts.
+winpath() { command -v cygpath >/dev/null 2>&1 && cygpath -w "$1" || printf '%s' "$1"; }
+CONFIG_HOST="$(winpath "$ROOT/gateway/apisix/podman/config.yaml")"
+CERTS_HOST="$(winpath "$ROOT/certs")"
 podman run -d --name ob-apisix --network "$NET" -p 9080:9080 -p 9180:9180 -p 9443:9443 \
-  -v "$ROOT/gateway/apisix/podman/config.yaml:/usr/local/apisix/conf/config.yaml:ro" \
-  -v "$ROOT/certs:/usr/local/apisix/conf/ob-certs:ro" \
+  -v "${CONFIG_HOST}:/usr/local/apisix/conf/config.yaml:ro" \
+  -v "${CERTS_HOST}:/usr/local/apisix/conf/ob-certs:ro" \
   docker.io/apache/apisix:3.9.1-debian >/dev/null
 
 echo "==> waiting for Admin API..."
